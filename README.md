@@ -36,7 +36,7 @@ You can find helper guides, scripts, and tools here:
 
 **(These guides, scripts, and tools are maintained by their authors.)**
 
-* **[GBE Fork Tools](https://github.com/Detanup01/gbe_fork_tools)**
+* **[GBE Fork Tools](https://github.com/kaiyasith-la/steamemu.git_tools)**
 * **[Semuexec](https://gitlab.com/detiam/Semuexec)**
 * **[Steam Emu Utility](https://github.com/turusudiro/SteamEmuUtility)**
 * **[How to use Goldberg Emulator](https://rentry.co/goldberg_emulator)**
@@ -67,7 +67,7 @@ You can also find instructions here in [README.release.md](./post_build/README.r
 
  Clone the repo and its submodules **recursively**
  ```shell
- git clone --recurse-submodules -j8 https://github.com/Detanup01/gbe_fork.git
+ git clone --recurse-submodules -j8 https://github.com/kaiyasith-la/steamemu.git
  ```
  The switch `-j8` is optional, it allows Git to fetch up to 8 submodules
 
