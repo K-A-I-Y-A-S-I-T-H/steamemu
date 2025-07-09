@@ -859,15 +859,15 @@ static void parse_stats(class Settings *settings_client, class Settings *setting
 
             try {
                 if (stat_type == "float") {
-                    config.type = GameServerStats_Messages::StatInfo::STAT_TYPE_FLOAT;
+                    config.type = StatInfo::STAT_TYPE_FLOAT;
                     config.default_value_float = std::stof(stat_default_value);
                     config.global_value_double = std::stod(stat_global_value);
                 } else if (stat_type == "int") {
-                    config.type = GameServerStats_Messages::StatInfo::STAT_TYPE_INT;
+                    config.type = StatInfo::STAT_TYPE_INT;
                     config.default_value_int = std::stol(stat_default_value);
                     config.global_value_int64 = std::stoll(stat_global_value);
                 } else if (stat_type == "avgrate") {
-                    config.type = GameServerStats_Messages::StatInfo::STAT_TYPE_AVGRATE;
+                    config.type = StatInfo::STAT_TYPE_AVGRATE;
                     config.default_value_float = std::stof(stat_default_value);
                     config.global_value_double = std::stod(stat_global_value);
                 } else {
@@ -1078,6 +1078,7 @@ static void try_parse_mods_file(class Settings *settings_client, Settings *setti
             newMod.total_files_sizes = mod.value().value("total_files_sizes", newMod.primaryFileSize);
             newMod.min_game_branch = mod.value().value("min_game_branch", "");
             newMod.max_game_branch = mod.value().value("max_game_branch", "");
+            newMod.metadata = mod.value().value("metadata", "");
             
             newMod.workshopItemURL = mod.value().value("workshop_item_url", "https://steamcommunity.com/sharedfiles/filedetails/?id=" + std::string(mod.key()));
             newMod.votesUp = mod.value().value("upvotes", (uint32)500);
@@ -1110,6 +1111,7 @@ static void try_parse_mods_file(class Settings *settings_client, Settings *setti
             PRINT_DEBUG("    total_files_sizes: %llu", settings_client->getMod(newMod.id).total_files_sizes);
             PRINT_DEBUG("    min_game_branch: '%s'", settings_client->getMod(newMod.id).min_game_branch.c_str());
             PRINT_DEBUG("    max_game_branch: '%s'", settings_client->getMod(newMod.id).max_game_branch.c_str());
+            PRINT_DEBUG("    metadata: '%s'", settings_client->getMod(newMod.id).metadata.c_str());
             PRINT_DEBUG("    workshop_item_url: '%s'", newMod.workshopItemURL.c_str());
             PRINT_DEBUG("    preview_url: '%s'", newMod.previewURL.c_str());
         } catch (std::exception& e) {
@@ -1178,6 +1180,7 @@ static void try_detect_mods_folder(class Settings *settings_client, Settings *se
             PRINT_DEBUG("    total_files_sizes: '%llu'", newMod.total_files_sizes);
             PRINT_DEBUG("    min_game_branch: '%s'", newMod.min_game_branch.c_str());
             PRINT_DEBUG("    max_game_branch: '%s'", newMod.max_game_branch.c_str());
+            PRINT_DEBUG("    metadata: '%s'", newMod.metadata.c_str());
             PRINT_DEBUG("    workshop_item_url: '%s'", newMod.workshopItemURL.c_str());
             PRINT_DEBUG("    preview_url: '%s'", newMod.previewURL.c_str());
         } catch (...) {}

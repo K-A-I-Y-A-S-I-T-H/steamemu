@@ -58,6 +58,7 @@ struct Mod_entry {
     uint64 total_files_sizes{}; // added in sdk 1.60, "Total size of all files (non-legacy), excluding the preview file"
     std::string min_game_branch{}; // added in sdk 1.60
     std::string max_game_branch{}; // added in sdk 1.60
+    std::string metadata{};
 
     std::string workshopItemURL{};
 
@@ -87,7 +88,7 @@ struct Leaderboard_config {
 };
 
 struct Stat_config {
-    GameServerStats_Messages::StatInfo::Stat_Type type{};
+    StatInfo::Stat_Type type{};
     union {
         float default_value_float;
         int32 default_value_int;
