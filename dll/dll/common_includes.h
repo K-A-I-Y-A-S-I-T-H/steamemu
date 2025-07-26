@@ -208,7 +208,7 @@ static inline void reset_LastError()
 
 // Emulator defines
 #define CLIENT_HSTEAMUSER 1
-#define SERVER_HSTEAMUSER 1
+#define SERVER_HSTEAMUSER 2
 
 #define DEFAULT_NAME "gse orca"
 #define DEFAULT_LANGUAGE "english"

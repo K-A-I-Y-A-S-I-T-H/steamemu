@@ -19,6 +19,7 @@
 #include "dll/dll.h"
 #include "dll/settings_parser.h"
 #include "dll/client_known_interfaces.h"
+#include "dll/capicmcallback.h"
 
 
 static char old_client[128] = STEAMCLIENT_INTERFACE_VERSION; //"SteamClient017";
@@ -215,7 +216,19 @@ static void *create_client_interface(const char *ver)
 
     Steam_Client *client_ptr = get_steam_client();
     if (strstr(ver, "SteamClient") == ver) {
-        if (strcmp(ver, "SteamClient006") == 0) {
+        client_ptr->steamclient_version = atoi(ver + 11);
+
+        if (strcmp(ver, "SteamClient001") == 0) {
+            return static_cast<ISteamClient001 *>(client_ptr);
+        } else if (strcmp(ver, "SteamClient002") == 0) {
+            return static_cast<ISteamClient002 *>(client_ptr);
+        } else if (strcmp(ver, "SteamClient003") == 0) {
+            return static_cast<ISteamClient003 *>(client_ptr);
+        } else if (strcmp(ver, "SteamClient004") == 0) {
+            return static_cast<ISteamClient004 *>(client_ptr);
+        } else if (strcmp(ver, "SteamClient005") == 0) {
+            return static_cast<ISteamClient005 *>(client_ptr);
+        } else if (strcmp(ver, "SteamClient006") == 0) {
             return static_cast<ISteamClient006 *>(client_ptr);
         } else if (strcmp(ver, "SteamClient007") == 0) {
             return static_cast<ISteamClient007 *>(client_ptr);
@@ -1325,6 +1338,16 @@ STEAMCLIENT_API void Steam_FreeLastCallback( HSteamPipe hSteamPipe )
     SteamAPI_ManualDispatch_FreeLastCallback( hSteamPipe );
 }
 
+bool steamclient_get_callback(HSteamPipe hSteamPipe, CallbackMsg_t *pCallbackMsg)
+{
+    return Steam_BGetCallback(hSteamPipe, pCallbackMsg);
+}
+
+void steamclient_free_callback(HSteamPipe hSteamPipe)
+{
+    return Steam_FreeLastCallback(hSteamPipe);
+}
+
 STEAMCLIENT_API steam_bool Steam_GetAPICallResult( HSteamPipe hSteamPipe, SteamAPICall_t hSteamAPICall, void* pCallback, int cubCallback, int iCallbackExpected, bool* pbFailed )
 {
     //PRINT_DEBUG("%i %llu %i %i", hSteamPipe, hSteamAPICall, cubCallback, iCallbackExpected);
@@ -1379,169 +1402,202 @@ STEAMCLIENT_API void Breakpad_SteamWriteMiniDumpUsingExceptionInfoWithBuildId( i
 STEAMCLIENT_API steam_bool Steam_BConnected( HSteamUser hUser, HSteamPipe hSteamPipe )
 {
     PRINT_DEBUG_ENTRY();
-    return true;
+    if (get_steam_client()->steamclient_version < 5)
+        return 0;
+
+    ISteamUser004 *su = reinterpret_cast<ISteamUser004 *>(get_steam_client()->GetISteamUser(hUser, hSteamPipe, "SteamUser004"));
+    return su->BConnected();
 }
 
 STEAMCLIENT_API steam_bool Steam_BLoggedOn( HSteamUser hUser, HSteamPipe hSteamPipe )
 {
-    PRINT_DEBUG("%i %i", hUser, hSteamPipe);
-    Steam_Client *steam_client = get_steam_client();
+    PRINT_DEBUG_ENTRY();
+    if (get_steam_client()->steamclient_version < 5)
+        return 0;
 
-    auto pipe_it = steam_client->steam_pipes.find(hSteamPipe);
-    if (steam_client->steam_pipes.end() == pipe_it) {
-        return false;
-    }
-
-    class Settings *settings_tmp{};
-    if (pipe_it->second == Steam_Pipe::SERVER) {
-        settings_tmp = steam_client->settings_server;
-    } else if (pipe_it->second == Steam_Pipe::CLIENT) {
-        settings_tmp = steam_client->settings_client;
-    } else {
-        return false;
-    }
-
-    return !settings_tmp->is_offline();
+    ISteamUser004 *su = reinterpret_cast<ISteamUser004 *>(get_steam_client()->GetISteamUser(hUser, hSteamPipe, "SteamUser004"));
+    return su->BLoggedOn();
 }
 
 STEAMCLIENT_API steam_bool Steam_BReleaseSteamPipe( HSteamPipe hSteamPipe )
 {
-    PRINT_DEBUG_TODO();
-    return false;
+    PRINT_DEBUG_ENTRY();
+    return get_steam_client()->BReleaseSteamPipe(hSteamPipe);
 }
 
 STEAMCLIENT_API HSteamUser Steam_ConnectToGlobalUser( HSteamPipe hSteamPipe )
 {
-    PRINT_DEBUG_TODO();
-    return 0;
+    PRINT_DEBUG_ENTRY();
+    get_steam_client()->steamclient_version = 6;
+    return get_steam_client()->ConnectToGlobalUser(hSteamPipe);
 }
 
 STEAMCLIENT_API HSteamUser Steam_CreateGlobalUser( HSteamPipe *phSteamPipe )
 {
-    PRINT_DEBUG_TODO();
-    return 0;
+    PRINT_DEBUG_ENTRY();
+    get_steam_client()->steamclient_version = 6;
+    return get_steam_client()->CreateGlobalUser(phSteamPipe);
 }
 
 STEAMCLIENT_API HSteamUser Steam_CreateLocalUser( HSteamPipe *phSteamPipe, EAccountType eAccountType )
 {
-    PRINT_DEBUG_TODO();
-    return 0;
+    PRINT_DEBUG_ENTRY();
+    get_steam_client()->steamclient_version = 6;
+    return get_steam_client()->CreateLocalUser(phSteamPipe, eAccountType);
 }
 
 STEAMCLIENT_API HSteamPipe Steam_CreateSteamPipe()
 {
-    PRINT_DEBUG_TODO();
-    return 0;
+    PRINT_DEBUG_ENTRY();
+    get_steam_client()->steamclient_version = 6;
+    return get_steam_client()->CreateSteamPipe();
+}
+
+STEAMCLIENT_API void *Steam_GetGSHandle(HSteamUser hUser, HSteamPipe hSteamPipe)
+{
+    PRINT_DEBUG_ENTRY();
+    return get_steam_client()->GetISteamGameServer(hUser, hSteamPipe, "SteamGameServer002");
 }
 
 STEAMCLIENT_API steam_bool Steam_GSBLoggedOn( void *phSteamHandle )
 {
-    PRINT_DEBUG_TODO();
-    return false;
+    PRINT_DEBUG_ENTRY();
+    if (!phSteamHandle) return 0;
+    ISteamGameServer002 *gs = reinterpret_cast<ISteamGameServer002 *>(phSteamHandle);
+    return gs->BLoggedOn();
 }
 
-STEAMCLIENT_API steam_bool Steam_GSBSecure( void *phSteamHandle)
+STEAMCLIENT_API steam_bool Steam_GSBSecure( void *phSteamHandle )
 {
-    PRINT_DEBUG_TODO();
-    return false;
+    PRINT_DEBUG_ENTRY();
+    if (!phSteamHandle) return 0;
+    ISteamGameServer002 *gs = reinterpret_cast<ISteamGameServer002 *>(phSteamHandle);
+    return gs->BSecure();
 }
 
-// latest steamclient
-STEAMCLIENT_API steam_bool Steam_GSGetSteam2GetEncryptionKeyToSendToNewClient(void* phSteamHandle)
-//STEAMCLIENT_API steam_bool Steam_GSGetSteam2GetEncryptionKeyToSendToNewClient( void *phSteamHandle, void *pvEncryptionKey, uint32 *pcbEncryptionKey, uint32 cbMaxEncryptionKey )
+STEAMCLIENT_API steam_bool Steam_GSGetSteam2GetEncryptionKeyToSendToNewClient( void *phSteamHandle, void *pvEncryptionKey, uint32 *pcbEncryptionKey, uint32 cbMaxEncryptionKey )
 {
-    PRINT_DEBUG_TODO();
-    return false;
+    PRINT_DEBUG_ENTRY();
+    if (!phSteamHandle) return 0;
+    ISteamGameServer002 *gs = reinterpret_cast<ISteamGameServer002 *>(phSteamHandle);
+    return gs->GSGetSteam2GetEncryptionKeyToSendToNewClient(pvEncryptionKey, pcbEncryptionKey, cbMaxEncryptionKey);
 }
 
-STEAMCLIENT_API uint64 Steam_GSGetSteamID()
+STEAMCLIENT_API int Steam_GSGetSteamGameConnectToken(HSteamUser hUser, HSteamPipe hSteamPipe, void *pBlob, int cbMaxBlob)
 {
-    PRINT_DEBUG_TODO();
-    return 0;
+    PRINT_DEBUG_ENTRY();
+    if (get_steam_client()->steamclient_version < 5)
+        return 0;
+
+    ISteamUser004 *su = reinterpret_cast<ISteamUser004 *>(get_steam_client()->GetISteamUser(hUser, hSteamPipe, "SteamUser004"));
+    return su->GetSteamGameConnectToken(pBlob, cbMaxBlob);
+}
+
+STEAMCLIENT_API uint64 Steam_GSGetSteamID( void *phSteamHandle )
+{
+    PRINT_DEBUG_ENTRY();
+    if (!phSteamHandle) return 0;
+    ISteamGameServer002 *gs = reinterpret_cast<ISteamGameServer002 *>(phSteamHandle);
+    return gs->GetSteamID().ConvertToUint64();
 }
 
 STEAMCLIENT_API void Steam_GSLogOff( void *phSteamHandle )
 {
-    PRINT_DEBUG_TODO();
+    PRINT_DEBUG_ENTRY();
+    if (!phSteamHandle) return;
+    ISteamGameServer002 *gs = reinterpret_cast<ISteamGameServer002 *>(phSteamHandle);
+    gs->LogOff();
 }
 
 STEAMCLIENT_API void Steam_GSLogOn( void *phSteamHandle )
 {
-    PRINT_DEBUG_TODO();
+    PRINT_DEBUG_ENTRY();
+    if (!phSteamHandle) return;
+    ISteamGameServer002 *gs = reinterpret_cast<ISteamGameServer002 *>(phSteamHandle);
+    gs->LogOn();
 }
 
-STEAMCLIENT_API steam_bool Steam_GSRemoveUserConnect(void* phSteamHandle)
-//STEAMCLIENT_API steam_bool Steam_GSRemoveUserConnect( void *phSteamHandle, uint32 unUserID )
+STEAMCLIENT_API steam_bool Steam_GSRemoveUserConnect( void *phSteamHandle, uint32 unUserID )
 {
-    PRINT_DEBUG_TODO();
-    return false;
+    PRINT_DEBUG_ENTRY();
+    if (!phSteamHandle) return 0;
+    ISteamGameServer002 *gs = reinterpret_cast<ISteamGameServer002 *>(phSteamHandle);
+    return gs->GSRemoveUserConnect(unUserID);
 }
 
-STEAMCLIENT_API steam_bool Steam_GSSendSteam2UserConnect(void* phSteamHandle)
-//STEAMCLIENT_API steam_bool Steam_GSSendSteam2UserConnect( void *phSteamHandle, uint32 unUserID, const void *pvRawKey, uint32 unKeyLen, uint32 unIPPublic, uint16 usPort, const void *pvCookie, uint32 cubCookie )
+STEAMCLIENT_API steam_bool Steam_GSSendSteam2UserConnect( void *phSteamHandle, uint32 unUserID, const void *pvRawKey, uint32 unKeyLen, uint32 unIPPublic, uint16 usPort, const void *pvCookie, uint32 cubCookie )
 {
-    PRINT_DEBUG_TODO();
-    return false;
+    PRINT_DEBUG_ENTRY();
+    if (!phSteamHandle) return 0;
+    ISteamGameServer002 *gs = reinterpret_cast<ISteamGameServer002 *>(phSteamHandle);
+    return gs->GSSendSteam2UserConnect(unUserID, pvRawKey, unKeyLen, unIPPublic, usPort, pvCookie, cubCookie);
 }
 
-STEAMCLIENT_API steam_bool Steam_GSSendSteam3UserConnect(void* phSteamHandle)
-//STEAMCLIENT_API steam_bool Steam_GSSendSteam3UserConnect( void *phSteamHandle, uint64 steamID, uint32 unIPPublic, const void *pvCookie, uint32 cubCookie )
+STEAMCLIENT_API steam_bool Steam_GSSendSteam3UserConnect( void *phSteamHandle, uint64 steamID, uint32 unIPPublic, const void *pvCookie, uint32 cubCookie )
 {
-    PRINT_DEBUG_TODO();
-    return false;
+    PRINT_DEBUG_ENTRY();
+    if (!phSteamHandle) return 0;
+    ISteamGameServer002 *gs = reinterpret_cast<ISteamGameServer002 *>(phSteamHandle);
+    return gs->GSSendSteam3UserConnect(steamID, unIPPublic, pvCookie, cubCookie);
 }
 
-STEAMCLIENT_API steam_bool Steam_GSSendUserDisconnect(void* phSteamHandle)
-//STEAMCLIENT_API steam_bool Steam_GSSendUserDisconnect( void *phSteamHandle, uint64 ulSteamID, uint32 unUserID )
+STEAMCLIENT_API steam_bool Steam_GSSendUserDisconnect( void *phSteamHandle, uint64 ulSteamID, uint32 unUserID )
 {
-    PRINT_DEBUG_TODO();
-    return false;
+    PRINT_DEBUG_ENTRY();
+    if (!phSteamHandle) return 0;
+    ISteamGameServer002 *gs = reinterpret_cast<ISteamGameServer002 *>(phSteamHandle);
+    return gs->GSSendUserDisconnect(ulSteamID, unUserID);
 }
 
-STEAMCLIENT_API steam_bool Steam_GSSendUserStatusResponse()
-//STEAMCLIENT_API steam_bool Steam_GSSendUserStatusResponse( void *phSteamHandle, uint64 ulSteamID, int nSecondsConnected, int nSecondsSinceLast )
+STEAMCLIENT_API steam_bool Steam_GSSendUserStatusResponse( void *phSteamHandle, uint64 ulSteamID, int nSecondsConnected, int nSecondsSinceLast )
 {
-    PRINT_DEBUG_TODO();
-    return false;
+    PRINT_DEBUG_ENTRY();
+    if (!phSteamHandle) return 0;
+    ISteamGameServer002 *gs = reinterpret_cast<ISteamGameServer002 *>(phSteamHandle);
+    return gs->GSSendUserStatusResponse(ulSteamID, nSecondsConnected, nSecondsSinceLast);
 }
 
 // Changed later, idk when.
-STEAMCLIENT_API steam_bool Steam_GSSetServerType(void* phSteamHandle, int32 a2)
-//STEAMCLIENT_API steam_bool Steam_GSSetServerType( void *phSteamHandle, int32 nAppIdServed, uint32 unServerFlags, uint32 unGameIP, uint32 unGamePort, const char *pchGameDir, const char *pchVersion )
+STEAMCLIENT_API steam_bool Steam_GSSetServerType( void *phSteamHandle, int32 nAppIdServed, uint32 unServerFlags, uint32 unGameIP, uint32 unGamePort, const char *pchGameDir, const char *pchVersion )
 {
-    PRINT_DEBUG_TODO();
-    return false;
+    PRINT_DEBUG_ENTRY();
+    if (!phSteamHandle) return 0;
+    ISteamGameServer002 *gs = reinterpret_cast<ISteamGameServer002 *>(phSteamHandle);
+    return gs->GSSetServerType(nAppIdServed, unServerFlags, unGameIP, unGamePort, pchGameDir, pchVersion);
 }
 
-STEAMCLIENT_API int64 Steam_GSSetSpawnCount(void* phSteamHandle)
-{
-    PRINT_DEBUG_TODO();
-    return 0;
-}
-
-/*
 STEAMCLIENT_API void Steam_GSSetSpawnCount( void *phSteamHandle, uint32 ucSpawn )
 {
-    PRINT_DEBUG_TODO();
-}
-*/
-STEAMCLIENT_API steam_bool Steam_GSUpdateStatus(void* phSteamHandle)
-//STEAMCLIENT_API steam_bool Steam_GSUpdateStatus( void *phSteamHandle, int cPlayers, int cPlayersMax, int cBotPlayers, const char *pchServerName, const char *pchMapName )
-{
-    PRINT_DEBUG_TODO();
-    return false;
+    PRINT_DEBUG_ENTRY();
+    if (!phSteamHandle) return;
+    ISteamGameServer002 *gs = reinterpret_cast<ISteamGameServer002 *>(phSteamHandle);
+    gs->GSSetSpawnCount(ucSpawn);
 }
 
-STEAMCLIENT_API void* Steam_GetGSHandle( HSteamUser hUser, HSteamPipe hSteamPipe )
+STEAMCLIENT_API steam_bool Steam_GSSetStatus(void *phSteamHandle, int32 nAppIdServed, uint32 unServerFlags, int cPlayers, int cPlayersMax, int cBotPlayers, int unGamePort, const char *pchServerName, const char *pchGameDir, const char *pchMapName, const char *pchVersion)
 {
-    PRINT_DEBUG_TODO();
-    return nullptr;
+    PRINT_DEBUG_ENTRY();
+    if (!phSteamHandle) return 0;
+    ISteamGameServer002 *gs = reinterpret_cast<ISteamGameServer002 *>(phSteamHandle);
+    return gs->Obsolete_GSSetStatus(nAppIdServed, unServerFlags, cPlayers, cPlayersMax, cBotPlayers, unGamePort, pchServerName, pchGameDir, pchMapName, pchVersion);
+}
+
+STEAMCLIENT_API steam_bool Steam_GSUpdateStatus( void *phSteamHandle, int cPlayers, int cPlayersMax, int cBotPlayers, const char *pchServerName, const char *pchMapName )
+{
+    PRINT_DEBUG_ENTRY();
+    if (!phSteamHandle) return 0;
+    ISteamGameServer002 *gs = reinterpret_cast<ISteamGameServer002 *>(phSteamHandle);
+    return gs->GSUpdateStatus(cPlayers, cPlayersMax, cBotPlayers, pchServerName, pchMapName);
 }
 
 STEAMCLIENT_API int Steam_InitiateGameConnection( HSteamUser hUser, HSteamPipe hSteamPipe, void *pBlob, int cbMaxBlob, uint64 steamID, int nGameAppID, uint32 unIPServer, uint16 usPortServer, bool bSecure )
 {
-    PRINT_DEBUG_TODO();
-    return 0;
+    PRINT_DEBUG_ENTRY();
+    if (get_steam_client()->steamclient_version < 5)
+        return 0;
+
+    ISteamUser004 *su = reinterpret_cast<ISteamUser004 *>(get_steam_client()->GetISteamUser(hUser, hSteamPipe, "SteamUser004"));
+    return su->InitiateGameConnection(pBlob, cbMaxBlob, steamID, nGameAppID, unIPServer, usPortServer, bSecure);
 }
 
 // https://github.com/ValveSoftware/Proton/blob/962bbc4e74dde0643a6edab7c845bc628601f23f/lsteamclient/steamclient_main.c#L579-L586
@@ -1564,12 +1620,22 @@ STEAMCLIENT_API steam_bool Steam_IsKnownInterface( const char *pchVersion )
 
 STEAMCLIENT_API void Steam_LogOff( HSteamUser hUser, HSteamPipe hSteamPipe )
 {
-    PRINT_DEBUG_TODO();
+    PRINT_DEBUG_ENTRY();
+    if (get_steam_client()->steamclient_version < 5)
+        return;
+
+    ISteamUser004 *su = reinterpret_cast<ISteamUser004 *>(get_steam_client()->GetISteamUser(hUser, hSteamPipe, "SteamUser004"));
+    su->LogOff();
 }
 
 STEAMCLIENT_API void Steam_LogOn( HSteamUser hUser, HSteamPipe hSteamPipe, uint64 ulSteamID )
 {
-    PRINT_DEBUG_TODO();
+    PRINT_DEBUG_ENTRY();
+    if (get_steam_client()->steamclient_version < 5)
+        return;
+
+    ISteamUser004 *su = reinterpret_cast<ISteamUser004 *>(get_steam_client()->GetISteamUser(hUser, hSteamPipe, "SteamUser004"));
+    su->LogOn(ulSteamID);
 }
 
 // https://github.com/ValveSoftware/Proton/blob/962bbc4e74dde0643a6edab7c845bc628601f23f/lsteamclient/steamclient_main.c#L588-L594
@@ -1579,22 +1645,224 @@ STEAMCLIENT_API void Steam_NotifyMissingInterface(HSteamPipe hSteamPipe, const c
     get_steam_client()->report_missing_impl(pchVersion, EMU_FUNC_NAME);
 }
 
-STEAMCLIENT_API void Steam_ReleaseThreadLocalMemory(bool thread_exit)
+STEAMCLIENT_API void Steam_ReleaseThreadLocalMemory( bool thread_exit )
 {
     PRINT_DEBUG_TODO();
 }
 
 STEAMCLIENT_API void Steam_ReleaseUser( HSteamPipe hSteamPipe, HSteamUser hUser )
 {
-    PRINT_DEBUG_TODO();
+    PRINT_DEBUG_ENTRY();
+    get_steam_client()->ReleaseUser(hSteamPipe, hUser);
 }
 
 STEAMCLIENT_API void Steam_SetLocalIPBinding( uint32 unIP, uint16 usLocalPort )
 {
-    PRINT_DEBUG_TODO();
+    PRINT_DEBUG_ENTRY();
+    get_steam_client()->SetLocalIPBinding(unIP, usLocalPort);
 }
 
 STEAMCLIENT_API void Steam_TerminateGameConnection( HSteamUser hUser, HSteamPipe hSteamPipe, uint32 unIPServer, uint16 usPortServer )
 {
-    PRINT_DEBUG_TODO();
+    PRINT_DEBUG_ENTRY();
+    if (get_steam_client()->steamclient_version < 5)
+        return;
+
+    ISteamUser004 *su = reinterpret_cast<ISteamUser004 *>(get_steam_client()->GetISteamUser(hUser, hSteamPipe, "SteamUser004"));
+    su->TerminateGameConnection(unIPServer, usPortServer);
 }
+
+// older sdk ----------------------------------------------------------
+STEAMCLIENT_API HSteamUser Steam3_ConnectToGlobalInstance()
+{
+    PRINT_DEBUG_ENTRY();
+    get_steam_client()->steamclient_version = 4;
+    return get_steam_client()->ConnectToGlobalInstance();
+}
+
+STEAMCLIENT_API HSteamUser Steam3_CreateLocalInstance()
+{
+    PRINT_DEBUG_ENTRY();
+    get_steam_client()->steamclient_version = 4;
+    return get_steam_client()->CreateLocalInstance();
+}
+
+STEAMCLIENT_API void Steam3_ReleaseInstance( HSteamUser hUser )
+{
+    PRINT_DEBUG_ENTRY();
+    get_steam_client()->ReleaseInstance(hUser);
+}
+
+STEAMCLIENT_API steam_bool Steam3_BMainLoop( uint64 time, bool unk )
+{
+    PRINT_DEBUG_ENTRY();
+    // Bool argument was dropped in SteamClient003 so just ignore it for compatibility.
+    return get_steam_client()->BMainLoop(time);
+}
+
+STEAMCLIENT_API void Steam3_LogOn( HSteamUser hUser, uint64 steamID )
+{
+    PRINT_DEBUG_ENTRY();
+    if (get_steam_client()->steamclient_version < 2)
+        return;
+
+    ISteamUser002 *su = reinterpret_cast<ISteamUser002 *>(get_steam_client()->GetISteamUser(hUser, "SteamUser002"));
+    CSteamID steam_id_struct(steamID);
+    su->LogOn(&steam_id_struct);
+}
+
+STEAMCLIENT_API void Steam3_LogOff( HSteamUser hUser )
+{
+    PRINT_DEBUG_ENTRY();
+    if (get_steam_client()->steamclient_version < 2)
+        return;
+
+    ISteamUser002 *su = reinterpret_cast<ISteamUser002 *>(get_steam_client()->GetISteamUser(hUser, "SteamUser002"));
+    su->LogOff();
+}
+
+STEAMCLIENT_API steam_bool Steam3_BLoggedOn( HSteamUser hUser )
+{
+    PRINT_DEBUG_ENTRY();
+    if (get_steam_client()->steamclient_version < 2)
+        return 0;
+
+    ISteamUser002 *su = reinterpret_cast<ISteamUser002 *>(get_steam_client()->GetISteamUser(hUser, "SteamUser002"));
+    return su->BLoggedOn();
+}
+
+STEAMCLIENT_API steam_bool Steam3_BConnected( HSteamUser hUser )
+{
+    PRINT_DEBUG_ENTRY();
+    if (get_steam_client()->steamclient_version < 2)
+        return 0;
+
+    ISteamUser002 *su = reinterpret_cast<ISteamUser002 *>(get_steam_client()->GetISteamUser(hUser, "SteamUser002"));
+    return su->BConnected();
+}
+
+STEAMCLIENT_API steam_bool Steam3_GSSendLogonRequest( HSteamUser hUser, uint64 steamID )
+{
+    PRINT_DEBUG_ENTRY();
+    if (get_steam_client()->steamclient_version < 2)
+        return 0;
+
+    ISteamUser002 *su = reinterpret_cast<ISteamUser002 *>(get_steam_client()->GetISteamUser(hUser, "SteamUser002"));
+    CSteamID steam_id_struct(steamID);
+    return su->GSSendLogonRequest(&steam_id_struct);
+}
+
+STEAMCLIENT_API steam_bool Steam3_GSSendDisconnect( HSteamUser hUser, uint64 steamID )
+{
+    PRINT_DEBUG_ENTRY();
+    if (get_steam_client()->steamclient_version < 2)
+        return 0;
+
+    ISteamUser002 *su = reinterpret_cast<ISteamUser002 *>(get_steam_client()->GetISteamUser(hUser, "SteamUser002"));
+    CSteamID steam_id_struct(steamID);
+    return su->GSSendDisconnect(&steam_id_struct);
+}
+
+STEAMCLIENT_API steam_bool Steam3_GSSendStatusResponse( HSteamUser hUser, uint64 steamID, int nSecondsConnected, int nSecondsSinceLast )
+{
+    PRINT_DEBUG_ENTRY();
+    if (get_steam_client()->steamclient_version < 2)
+        return 0;
+
+    ISteamUser002 *su = reinterpret_cast<ISteamUser002 *>(get_steam_client()->GetISteamUser(hUser, "SteamUser002"));
+    CSteamID steam_id_struct(steamID);
+    return su->GSSendStatusResponse(&steam_id_struct, nSecondsConnected, nSecondsSinceLast);
+}
+
+STEAMCLIENT_API steam_bool Steam3_GSSetStatus( HSteamUser hUser, int32 nAppIdServed, uint32 unServerFlags, int cPlayers, int cPlayersMax, int cBotPlayers, int unGamePort, const char *pchServerName, const char *pchGameDir, const char *pchMapName, const char *pchVersion )
+{
+    PRINT_DEBUG_ENTRY();
+    if (get_steam_client()->steamclient_version < 2)
+        return 0;
+
+    if (get_steam_client()->steamclient_version < 4) {
+        ISteamUser002 *su = reinterpret_cast<ISteamUser002 *>(get_steam_client()->GetISteamUser(hUser, "SteamUser002"));
+        return su->GSSetStatus(nAppIdServed, unServerFlags, cPlayers, cPlayersMax, cBotPlayers, unGamePort, pchServerName, pchGameDir, pchMapName, pchVersion);
+    }
+
+    ISteamGameServer001 *gs = reinterpret_cast<ISteamGameServer001 *>(get_steam_client()->GetISteamGameServer(hUser, "SteamGameServer001"));
+    return gs->Obsolete_GSSetStatus(nAppIdServed, unServerFlags, cPlayers, cPlayersMax, cBotPlayers, unGamePort, pchServerName, pchGameDir, pchMapName, pchVersion);
+}
+
+static std::map<HSteamUser, CCAPICMCallBack> capi_cmcallback_map;
+
+STEAMCLIENT_API void Steam3_Init( HSteamUser hUser,
+    OnLogonSuccessFunc func1,
+    OnLogonFailureFunc func2,
+    OnLoggedOffFunc func3,
+    OnBeginLogonRetryFunc func4,
+    HandleVACChallengeFunc func5,
+    GSHandleClientApproveFunc func6,
+    GSHandleClientDenyFunc func7,
+    GSHandleClientKickFunc func8 )
+{
+    PRINT_DEBUG_ENTRY();
+    get_steam_client()->steamclient_version = 2;
+    ISteamUser002 *su = reinterpret_cast<ISteamUser002 *>(get_steam_client()->GetISteamUser(hUser, "SteamUser002"));
+    CCAPICMCallBack new_cmcallback(func1, func2, func3, func4, func5, func6, func7, func8);
+    auto [it, _] = capi_cmcallback_map.insert_or_assign(hUser, new_cmcallback);
+    su->Init(&it->second, nullptr);
+}
+
+STEAMCLIENT_API steam_bool Steam3_GSSendUserConnect( HSteamUser hUser, uint64 steamID, uint32 unIPPublic, uint32 unk )
+{
+    PRINT_DEBUG_ENTRY();
+    ISteamGameServer001 *gs = reinterpret_cast<ISteamGameServer001 *>(get_steam_client()->GetISteamGameServer(hUser, "SteamGameServer001"));
+    return gs->GSSendUserConnect(steamID, unIPPublic, unk);
+}
+
+STEAMCLIENT_API steam_bool Steam3_GSSendUserDisconnect( HSteamUser hUser, uint64 steamID )
+{
+    PRINT_DEBUG_ENTRY();
+    ISteamGameServer001 *gs = reinterpret_cast<ISteamGameServer001 *>(get_steam_client()->GetISteamGameServer(hUser, "SteamGameServer001"));
+    return gs->GSSendUserDisconnect(steamID);
+}
+
+STEAMCLIENT_API steam_bool Steam3_GSSendUserStatusResponse( HSteamUser hUser, uint64 steamID, int nSecondsConnected, int nSecondsSinceLast )
+{
+    PRINT_DEBUG_ENTRY();
+    ISteamGameServer001 *gs = reinterpret_cast<ISteamGameServer001 *>(get_steam_client()->GetISteamGameServer(hUser, "SteamGameServer001"));
+    return gs->GSSendUserStatusResponse(steamID, nSecondsConnected, nSecondsSinceLast);
+}
+
+STEAMCLIENT_API steam_bool Steam3_BGetCallback( HSteamUser hUser, int *piCallback, uint8_t **ppubParam, int *unk )
+{
+    PRINT_DEBUG_ENTRY();
+    if (get_steam_client()->steamclient_version != 4)
+        return 0;
+
+    ISteamUser004_old *su = reinterpret_cast<ISteamUser004_old *>(get_steam_client()->GetISteamUser(hUser, "SteamUser004"));
+    return su->BGetCallback(piCallback, ppubParam, unk);
+}
+
+STEAMCLIENT_API void Steam3_FreeLastCallback( HSteamUser hUser )
+{
+    PRINT_DEBUG_ENTRY();
+    if (get_steam_client()->steamclient_version != 4)
+        return;
+
+    ISteamUser004_old *su = reinterpret_cast<ISteamUser004_old *>(get_steam_client()->GetISteamUser(hUser, "SteamUser004"));
+    su->FreeLastCallback();
+}
+
+STEAMCLIENT_API int Steam3_GetSteamTicket( HSteamUser hUser, void *pBlob, int cbMaxBlob )
+{
+    PRINT_DEBUG_ENTRY();
+    if (get_steam_client()->steamclient_version != 4)
+        return 0;
+
+    ISteamUser004_old *su = reinterpret_cast<ISteamUser004_old *>(get_steam_client()->GetISteamUser(hUser, "SteamUser004"));
+    return su->GetSteamTicket(pBlob, cbMaxBlob);
+}
+
+STEAMCLIENT_API void Steam3_SetLocalIPBinding( uint32 unIP, uint16 usLocalPort )
+{
+    PRINT_DEBUG_ENTRY();
+    get_steam_client()->SetLocalIPBinding(unIP, usLocalPort);
+}
+// older sdk ----------------------------------------------------------

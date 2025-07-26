@@ -93,8 +93,25 @@ newoption {
     trigger = "ext-ingame_overlay",
     description = "Extract ingame_overlay",
 }
+newoption {
+    category = "extract",
+    trigger = "ext-opus",
+    description = "Extract opus",
+}
+newoption {
+    category = "extract",
+    trigger = "ext-portaudio",
+    description = "Extract portaudio",
+}
 
 -- build
+newoption {
+    category = "build",
+    trigger = "deps-dir",
+    description = "Base directory to build dependencies inside (if overridden it MUST be absolute)",
+    value = '/absolute/path/to/my-deps-dir/',
+    default = path.getabsolute(path.join('build', 'deps', os_iden, _ACTION), _MAIN_SCRIPT_DIR),
+}
 newoption {
     category = "build",
     trigger = "all-build",
@@ -146,7 +163,16 @@ newoption {
     trigger = "build-ingame_overlay",
     description = "Build ingame_overlay",
 }
-
+newoption {
+    category = "build",
+    trigger = "build-opus",
+    description = "Build opus",
+}
+newoption {
+    category = "build",
+    trigger = "build-portaudio",
+    description = "Build portaudio",
+}
 
 local function merge_list(src, dest)
     local src_count = #src
@@ -170,7 +196,7 @@ end
 
 -- common defs
 ---------
-local deps_dir = path.getabsolute(path.join('build', 'deps', os_iden, _ACTION), _MAIN_SCRIPT_DIR)
+local deps_dir = _OPTIONS["deps-dir"]
 local third_party_dir = path.getabsolute('third-party')
 local third_party_deps_dir = path.join(third_party_dir, 'deps', os_iden)
 local third_party_common_dir = path.join(third_party_dir, 'deps', 'common')
@@ -213,6 +239,12 @@ local cmake_common_defs = {
     'CMAKE_POSITION_INDEPENDENT_CODE=True',
     'BUILD_SHARED_LIBS=OFF',
     'CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded',
+    "CMAKE_CXX_STANDARD=17",
+
+    -- https://cmake.org/cmake/help/latest/command/install.html
+    'CMAKE_INSTALL_LIBDIR=lib',         -- on Fedora this is set to 'lib64'
+    'CMAKE_INSTALL_BINDIR=bin',         -- |_ ensure consistency on different Linux distros
+    'CMAKE_INSTALL_INCLUDEDIR=include', -- |_ ensure consistency on different Linux distros
 }
 
 
@@ -427,6 +459,12 @@ end
 if _OPTIONS["ext-ingame_overlay"] or _OPTIONS["all-ext"] then
     table.insert(deps_to_extract, { 'ingame_overlay/ingame_overlay.tar.gz', 'ingame_overlay' })
 end
+if _OPTIONS["ext-opus"] or _OPTIONS["all-ext"] then
+    table.insert(deps_to_extract, { 'opus/opus.tar.gz', 'opus' })
+end
+if _OPTIONS["ext-portaudio"] or _OPTIONS["all-ext"] then
+    table.insert(deps_to_extract, { 'portaudio/portaudio.tar.gz', 'portaudio' })
+end
 
 -- start extraction
 for _, dep in pairs(deps_to_extract) do
@@ -494,11 +532,14 @@ if _OPTIONS["build-ssq"] or _OPTIONS["all-build"] then
     end
 end
 if _OPTIONS["build-zlib"] or _OPTIONS["all-build"] then
+    local zlib_common_defs = {
+        "ZLIB_BUILD_EXAMPLES=OFF",
+    }
     if _OPTIONS["32-build"] then
-        cmake_build('zlib', true)
+        cmake_build('zlib', true, zlib_common_defs)
     end
     if _OPTIONS["64-build"] then
-        cmake_build('zlib', false)
+        cmake_build('zlib', false, zlib_common_defs)
     end
 end
 
@@ -633,6 +674,8 @@ if _OPTIONS["build-curl"] or _OPTIONS["all-build"] then
         "USE_LIBIDN2=OFF",
         "CURL_DISABLE_LDAP=ON",
         "USE_NGHTTP2=OFF",
+        "CURL_BROTLI=OFF",
+        "CURL_ZSTD=OFF"
     }
     if os.target() == 'windows' and string.match(_ACTION, 'vs.+') then
         table.insert(curl_common_defs, "CURL_STATIC_CRT=ON")
@@ -662,14 +705,15 @@ if _OPTIONS["build-protobuf"] or _OPTIONS["all-build"] then
         "ABSL_PROPAGATE_CXX_STD=ON",
         "protobuf_BUILD_PROTOBUF_BINARIES=ON",
         "protobuf_BUILD_PROTOC_BINARIES=ON",
-        "protobuf_BUILD_LIBPROTOC=OFF",
-        "protobuf_BUILD_LIBUPB=OFF",
+        "protobuf_BUILD_LIBPROTOC=ON",
+        "protobuf_BUILD_LIBUPB=ON",
         "protobuf_BUILD_TESTS=OFF",
         "protobuf_BUILD_EXAMPLES=OFF",
         "protobuf_DISABLE_RTTI=ON",
         "protobuf_BUILD_CONFORMANCE=OFF",
         "protobuf_BUILD_SHARED_LIBS=OFF",
         "protobuf_WITH_ZLIB=ON",
+        "protobuf_FORCE_FETCH_DEPENDENCIES=ON",
     }
     if os.target() == 'windows' and string.match(_ACTION, 'gmake.*') then
         table.insert(proto_common_defs, 'protobuf_MSVC_STATIC_RUNTIME=ON')
@@ -735,5 +779,48 @@ if _OPTIONS["build-ingame_overlay"] or _OPTIONS["all-build"] then
             'MINIDETOUR_DYNAMIC_RUNTIME=OFF',
         })
         cmake_build('ingame_overlay', false, ingame_overlay_common_defs, nil, ingame_overlay_fixes)
+    end
+end
+
+if _OPTIONS["build-opus"] or _OPTIONS["all-build"] then
+    local opus_common_defs = {
+        "OPUS_BUILD_SHARED_LIBRARY=OFF",
+        "OPUS_BUILD_TESTING=OFF",
+        "OPUS_BUILD_PROGRAMS=OFF",
+        "OPUS_CUSTOM_MODES=OFF",
+        "OPUS_STATIC_RUNTIME=ON",
+    }
+
+    if _OPTIONS["32-build"] then
+        cmake_build('opus', true, opus_common_defs)
+    end
+    if _OPTIONS["64-build"] then
+        cmake_build('opus', false, opus_common_defs)
+    end
+end
+
+if _OPTIONS["build-portaudio"] or _OPTIONS["all-build"] then
+    local portaudio_common_defs = {
+        "PA_BUILD_SHARED_LIBS=OFF",
+        "PA_BUILD_TESTS=OFF",
+        "PA_BUILD_EXAMPLES=OFF",
+        "PA_ENABLE_DEBUG_OUTPUT=OFF",
+        "PA_USE_SKELETON=OFF", -- skeleton idk what that means
+        -- Win dependent stuff
+        "PA_USE_ASIO=OFF",
+        "PA_USE_DS=ON",
+        "PA_USE_WMME=ON",
+        "PA_USE_WASAPI=ON",
+        "PA_USE_WDMKS=ON",
+        "PA_USE_WDMKS_DEVICE_INFO=ON",
+        -- linux specific stuff
+        "PA_ALSA_DYNAMIC=OFF",
+    }
+
+    if _OPTIONS["32-build"] then
+        cmake_build('portaudio', true, portaudio_common_defs)
+    end
+    if _OPTIONS["64-build"] then
+        cmake_build('portaudio', false, portaudio_common_defs)
     end
 end

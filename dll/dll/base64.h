@@ -15,28 +15,10 @@
    License along with the Goldberg Emulator; if not, see
    <http://www.gnu.org/licenses/>.  */
 
-#ifndef __INCLUDED_DLL_H__
-#define __INCLUDED_DLL_H__
+#pragma once
+#include <string>
+#include <vector>
+#include <cstdint>
 
-#include "steam_client.h"
-
-#ifdef STEAMCLIENT_DLL
-#define STEAMAPI_API static
-#define STEAMCLIENT_API S_API_EXPORT
-#else
-#define STEAMAPI_API S_API_EXPORT
-#define STEAMCLIENT_API static
-#endif
-
-Steam_Client *get_steam_client();
-bool steamclient_has_ipv6_functions();
-bool steamclient_get_callback(HSteamPipe hSteamPipe, CallbackMsg_t *pCallbackMsg);
-void steamclient_free_callback(HSteamPipe hSteamPipe);
-
-HSteamUser flat_hsteamuser();
-HSteamPipe flat_hsteampipe();
-HSteamUser flat_gs_hsteamuser();
-HSteamPipe flat_gs_hsteampipe();
-
-
-#endif // __INCLUDED_DLL_H__
+// Decodes a base64 encoded string into a byte vector
+std::vector<uint8_t> base64_decode(const std::string& encoded_string);
