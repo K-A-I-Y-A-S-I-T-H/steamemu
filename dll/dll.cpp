@@ -347,7 +347,7 @@ STEAMAPI_API steam_bool S_CALLTYPE SteamAPI_Init()
     // call this first since it loads old interfaces
     Steam_Client* client = get_steam_client();
 
-#ifdef EMU_EXPERIMENTAL_BUILD
+#if defined(EMU_EXPERIMENTAL_BUILD) && defined(__WINDOWS__)
     crack_SteamAPI_Init();
 #endif
 
@@ -446,10 +446,11 @@ STEAMAPI_API steam_bool S_CALLTYPE SteamAPI_RestartAppIfNecessary( uint32 unOwnA
     
     // call this first since it loads old interfaces
     Steam_Client* client = get_steam_client();
-    
-#ifdef EMU_EXPERIMENTAL_BUILD
+
+#if defined(EMU_EXPERIMENTAL_BUILD) && defined(__WINDOWS__)
     crack_SteamAPI_RestartAppIfNecessary(unOwnAppID);
 #endif
+
     client->setAppID(unOwnAppID);
     return false;
 }
@@ -1358,10 +1359,13 @@ STEAMCLIENT_API void* CreateInterface( const char *pName, int *pReturnCode )
 {
     PRINT_DEBUG("%s %p", pName, pReturnCode);
     auto ptr = create_client_interface(pName);
-    if (ptr) {
-        if (pReturnCode) *pReturnCode = 1;
-    } else {
-        if (pReturnCode) *pReturnCode = 0;
+    if (pReturnCode) {
+        // https://github.com/ValveSoftware/source-sdk-2013/blob/57a8b644af418c691f1fba45791019cf2367dedd/src/public/tier1/interface.h#L156-L160
+        if (ptr) {
+            *pReturnCode = 0; // IFACE_OK
+        } else {
+            *pReturnCode = 1; // IFACE_FAILED
+        }
     }
     return ptr;
 }

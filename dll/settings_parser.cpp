@@ -1498,6 +1498,9 @@ static void parse_simple_features(class Settings *settings_client, class Setting
     settings_client->use_gc_token = ini.GetBoolValue("main::general", "gc_token", settings_client->use_gc_token);
     settings_server->use_gc_token = ini.GetBoolValue("main::general", "gc_token", settings_server->use_gc_token);
 
+    settings_client->block_unknown_clients = ini.GetBoolValue("main::general", "block_unknown_clients", settings_client->block_unknown_clients);
+    settings_server->block_unknown_clients = ini.GetBoolValue("main::general", "block_unknown_clients", settings_server->block_unknown_clients);
+
     settings_client->disable_account_avatar = !ini.GetBoolValue("main::general", "enable_account_avatar", !settings_client->disable_account_avatar);
     settings_server->disable_account_avatar = !ini.GetBoolValue("main::general", "enable_account_avatar", !settings_server->disable_account_avatar);
 
@@ -1570,6 +1573,9 @@ static void parse_stats_features(class Settings *settings_client, class Settings
         long val_server = ini.GetLongValue("main::stats", "paginated_achievements_icons", settings_server->paginated_achievements_icons);
         settings_server->paginated_achievements_icons = static_cast<int>(val_server);
     }
+
+    settings_client->record_playtime = ini.GetBoolValue("main::stats", "record_playtime", settings_client->record_playtime);
+    settings_server->record_playtime = ini.GetBoolValue("main::stats", "record_playtime", settings_server->record_playtime);
 }
 
 

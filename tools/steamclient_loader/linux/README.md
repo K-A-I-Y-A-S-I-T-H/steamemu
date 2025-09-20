@@ -1,9 +1,10 @@
 >## How to use it:
 Copy both files  
-- `steamclient.so`  
-- `steamclient64.so`  
+- `x32/steamclient.so`  
+- `x64/steamclient.so`  
 
-beside the script and specify the requird input, either from commdnline or via the configuration files: `ldr_*.txt`  
+In their respective directories beside the script.  
+Then specify the requird data, either via commandline, or via the configuration files: `ldr_*.txt`  
 
 It is recommended to create a separate setup for each game via the config files  
 to avoid specifying the commandline each time.  

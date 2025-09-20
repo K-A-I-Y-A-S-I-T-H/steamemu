@@ -128,6 +128,7 @@ static inline void reset_LastError()
     #include <netinet/in.h>
     #include <netinet/tcp.h>
     #include <linux/netdevice.h>
+    #include <sys/vfs.h>
 
     #include <fcntl.h>
     #include <unistd.h>

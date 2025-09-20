@@ -840,12 +840,8 @@ project "api_experimental"
     filter {} -- reset the filter and remove all active keywords
     defines { -- added to all filters, later defines will be appended
         "EMU_OVERLAY", "ImTextureID=ImU64",
+        "EMU_EXPERIMENTAL_BUILD",
     }
-    -- Windows defines
-    filter { "system:windows" }
-        defines {
-            "EMU_EXPERIMENTAL_BUILD",
-        }
 
 
     -- include dir
@@ -975,12 +971,8 @@ project "steamclient_experimental"
     filter {} -- reset the filter and remove all active keywords
     defines { -- added to all filters, later defines will be appended
         "STEAMCLIENT_DLL", "EMU_OVERLAY", "ImTextureID=ImU64",
+        "EMU_EXPERIMENTAL_BUILD",
     }
-    -- Windows defines
-    filter { "system:windows" }
-        defines {
-            "EMU_EXPERIMENTAL_BUILD",
-        }
 
 
     -- include dir
@@ -1360,6 +1352,55 @@ project "steamclient_experimental_extra"
             "resources/win/client/64/resources.rc"
         }
 -- End steamclient_experimental_extra
+
+
+-- Project lib_steam_old
+project "lib_steam_old"
+    -- https://premake.github.io/docs/Configurations-and-Platforms/#per-project-configurations
+    removeplatforms { "x64" }
+
+    kind "SharedLib"
+    location "%{wks.location}/%{prj.name}"
+    targetdir(path.join(build_dir, os_iden, _ACTION, "%{cfg.buildcfg}/steam_old_lib"))
+    targetname "Steam"
+
+
+    -- include dir
+    ---------
+    -- x32 include dir
+    includedirs {
+        x32_deps_include,
+    }
+
+
+    -- common source & header files
+    ---------
+    filter {} -- reset the filter and remove all active keywords
+    files {
+        "steam_old_lib/**",
+        "helpers/common_helpers.cpp", "helpers/common_helpers/**",
+        "helpers/dbg_log.cpp", "helpers/dbg_log/**",
+        'libs/utfcpp/**',
+        -- detours
+        detours_files,
+    }
+    removefiles {
+        'libs/detours/uimports.cc',
+    }
+    -- x32 common source files
+    files {
+        "resources/win/api/32/resources.rc"
+    }
+
+
+    -- libs to link
+    ---------
+    -- Windows libs to link
+    filter {} -- reset the filter and remove all active keywords
+    links {
+        'Ws2_32',
+    }
+-- End lib_steam_old
 
 
 -- Project steamclient_experimental_loader

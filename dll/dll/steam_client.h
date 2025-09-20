@@ -61,6 +61,7 @@
 #include "steam_masterserver_updater.h"
 
 #include "overlay/steam_overlay.h"
+#include "playtime.h"
 
 enum Steam_Pipe {
     NO_USER,
@@ -170,6 +171,9 @@ public:
     Steam_AppTicket *steam_app_ticket{};
 
     Steam_Overlay* steam_overlay{};
+    P2p_Manager *p2p_manager{};
+
+    PlaytimeCounter* playtime_counter{};
 
     bool steamclient_server_inited = false;
 

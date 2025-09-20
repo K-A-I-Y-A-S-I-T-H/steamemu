@@ -268,9 +268,11 @@ public:
     bool steam_deck = false;
     
     // use new app_ticket auth instead of old one
-    bool enable_new_app_ticket = false;
+    bool enable_new_app_ticket = true;
     // can use GC token for generation
-    bool use_gc_token = false;
+    bool use_gc_token = true;
+    // block connections from clients with unknown auth ticket
+    bool block_unknown_clients = false;
 
     // allow stats not defined by the user?
     bool allow_unknown_stats = false;
@@ -288,6 +290,9 @@ public:
     // 0  == load icons only when they're requested
     // >0 == load icons in the background as mentioned above
     int paginated_achievements_icons = 10;
+
+    // whether to record playtime
+    bool record_playtime = false;
 
     // bypass to make SetAchievement() always return true, prevent some games from breaking
     bool achievement_bypass = false;
