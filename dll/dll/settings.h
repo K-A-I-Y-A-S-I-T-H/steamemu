@@ -200,6 +200,32 @@ struct Branch_Info {
     bool active = false;
 };
 
+struct OldP2pBehavior {
+    enum class EPacketShareMode {
+        // if the sending type is unreliable (UDP), share packets between gameserver and client
+        // otherwise, don't share packets
+        DEFAULT,
+
+        // always share packets between gameserver and client
+        ALWAYS_SHARE,
+
+        // never share packets between gameserver and client
+        NEVER_SHARE,
+
+        _LAST,
+    };
+
+    static EPacketShareMode to_share_mode(int val) {
+        if (val < 0 || val >= (unsigned)EPacketShareMode::_LAST) {
+            return EPacketShareMode::DEFAULT;
+        }
+
+        return (EPacketShareMode)val;
+    }
+
+    EPacketShareMode mode = EPacketShareMode::DEFAULT;
+};
+
 class Settings {
 private:
     CSteamID steam_id{}; // user id
@@ -361,10 +387,23 @@ public:
     bool auto_accept_any_overlay_invites = false;
     // list of user steam IDs to auto-accept invites from
     std::set<uint64_t> auto_accept_overlay_invites_friends{};
+    // whether to auto send any overlay invites
+    bool auto_send_any_overlay_invites = false;
+    // list of user steam IDs to auto-send invites to
+    std::set<uint64_t> auto_send_overlay_invites_friends{};
     bool overlay_always_show_user_info = false;
     bool overlay_always_show_fps = false;
     bool overlay_always_show_frametime = false;
     bool overlay_always_show_playtime = false;
+
+    // free weekend
+    bool free_weekend = false;
+
+    // old P2P (ISteamNetworking) behavior
+    OldP2pBehavior old_p2p_behavior{};
+
+    // voice chat
+    bool enable_voice_chat = false;
 
 
 #ifdef LOBBY_CONNECT
@@ -443,6 +482,12 @@ public:
     void addFriendToOverlayAutoAccept(uint64_t friend_id);
     bool hasOverlayAutoAcceptInviteFromFriend(uint64_t friend_id) const;
     size_t overlayAutoAcceptInvitesCount() const;
+
+    // overlay auto send stuff
+    void autoSendAnyOverlayInvites(bool value);
+    void addFriendToOverlayAutoSend(uint64_t friend_id);
+    bool hasOverlayAutoSendToFriend(uint64_t friend_id) const;
+    size_t overlayAutoSendInvitesCount() const;
 };
 
 #endif // SETTINGS_INCLUDE_H

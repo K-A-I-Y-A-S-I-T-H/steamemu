@@ -15,13 +15,14 @@
    License along with the Goldberg Emulator; if not, see
    <http://www.gnu.org/licenses/>.  */
 
-#include "dll/settings_parser.h"
-#include "dll/base64.h"
-
 #define SI_CONVERT_GENERIC
 #define SI_SUPPORT_IOSTREAMS
 #define SI_NO_MBCS
 #include "simpleini/SimpleIni.h"
+
+#include "dll/settings_parser.h"
+#include "dll/settings_parser_ufs.h"
+#include "dll/base64.h"
 
 
 constexpr const static char config_ini_app[]     = "configs.app.ini";
@@ -606,6 +607,17 @@ static uint32 parse_steam_app_id(const std::string &program_path)
 // user::saves::local_save_path
 static bool parse_local_save(std::string &save_path)
 {
+    std::string env_save_path = get_env_variable("GseSavePath");
+    if (env_save_path.length()) {
+        if (env_save_path.back() != *PATH_SEPARATOR) {
+            env_save_path.push_back(*PATH_SEPARATOR);
+        }
+
+        save_path = env_save_path;
+        PRINT_DEBUG("using local save path '%s'", save_path.c_str());
+        return true;
+    }
+
     auto ptr = ini.GetValue("user::saves", "local_save_path");
     if (!ptr || !ptr[0]) return false;
     
@@ -1285,6 +1297,38 @@ static void parse_auto_accept_invite(class Settings *settings_client, class Sett
     }
 }
 
+// auto_send_invite.txt
+static void parse_auto_send_invite(class Settings *settings_client, class Settings *settings_server)
+{
+    std::string auto_send_list_path = Local_Storage::get_game_settings_path() + "auto_send_invite.txt";
+    std::ifstream input( std::filesystem::u8path(auto_send_list_path) );
+    if (input.is_open()) {
+        bool send_any_invite = true;
+        common_helpers::consume_bom(input);
+        for( std::string line; getline( input, line ); ) {
+            line = common_helpers::string_strip(line);
+            if (!line.empty()) {
+                send_any_invite = false;
+                try {
+                    auto friend_id = std::stoull(line);
+                    settings_client->addFriendToOverlayAutoSend((uint64_t)friend_id);
+                    settings_server->addFriendToOverlayAutoSend((uint64_t)friend_id);
+                    PRINT_DEBUG("Adding user with ID (SteamID64) = %llu to auto invite list", friend_id);
+                } catch (...) {}
+            }
+        }
+
+        if (send_any_invite) {
+            PRINT_DEBUG("Auto sending any overlay invitation");
+            settings_client->autoSendAnyOverlayInvites(true);
+            settings_server->autoSendAnyOverlayInvites(true);
+        } else {
+            settings_client->autoSendAnyOverlayInvites(false);
+            settings_server->autoSendAnyOverlayInvites(false);
+        }
+    }
+}
+
 // branches.json
 static bool parse_branches_file(
     const std::string &base_path, const bool force_load,
@@ -1504,6 +1548,9 @@ static void parse_simple_features(class Settings *settings_client, class Setting
     settings_client->disable_account_avatar = !ini.GetBoolValue("main::general", "enable_account_avatar", !settings_client->disable_account_avatar);
     settings_server->disable_account_avatar = !ini.GetBoolValue("main::general", "enable_account_avatar", !settings_server->disable_account_avatar);
 
+    settings_client->enable_voice_chat = ini.GetBoolValue("main::general", "enable_voice_chat", settings_client->enable_voice_chat);
+    settings_server->enable_voice_chat = ini.GetBoolValue("main::general", "enable_voice_chat", settings_server->enable_voice_chat);
+
     settings_client->steam_deck = ini.GetBoolValue("main::general", "steam_deck", settings_client->steam_deck);
     settings_server->steam_deck = ini.GetBoolValue("main::general", "steam_deck", settings_server->steam_deck);
 
@@ -1536,6 +1583,13 @@ static void parse_simple_features(class Settings *settings_client, class Setting
     settings_client->download_steamhttp_requests = ini.GetBoolValue("main::connectivity", "download_steamhttp_requests", settings_client->download_steamhttp_requests);
     settings_server->download_steamhttp_requests = ini.GetBoolValue("main::connectivity", "download_steamhttp_requests", settings_server->download_steamhttp_requests);
 
+    settings_client->old_p2p_behavior.mode = OldP2pBehavior::to_share_mode(
+        (int)ini.GetLongValue("main::connectivity", "old_p2p_packet_sharing_mode", (unsigned)settings_client->old_p2p_behavior.mode)
+    );
+    settings_server->old_p2p_behavior.mode = OldP2pBehavior::to_share_mode(
+        (int)ini.GetLongValue("main::connectivity", "old_p2p_packet_sharing_mode", (unsigned)settings_server->old_p2p_behavior.mode)
+    );
+
 
     // [main::misc]
     settings_client->achievement_bypass = ini.GetBoolValue("main::misc", "achievements_bypass", settings_client->achievement_bypass);
@@ -1549,6 +1603,9 @@ static void parse_simple_features(class Settings *settings_client, class Setting
 
     settings_client->enable_builtin_preowned_ids = ini.GetBoolValue("main::misc", "enable_steam_preowned_ids", settings_client->enable_builtin_preowned_ids);
     settings_server->enable_builtin_preowned_ids = ini.GetBoolValue("main::misc", "enable_steam_preowned_ids", settings_server->enable_builtin_preowned_ids);
+
+    settings_client->free_weekend = ini.GetBoolValue("main::misc", "free_weekend", settings_client->free_weekend);
+    settings_server->free_weekend = ini.GetBoolValue("main::misc", "free_weekend", settings_server->free_weekend);
 }
 
 // [main::stats]
@@ -1857,6 +1914,7 @@ uint32 create_localstorage_settings(Settings **settings_client_out, Settings **s
     parse_mods_folder(settings_client, settings_server, local_storage);
     load_gamecontroller_settings(settings_client);
     parse_auto_accept_invite(settings_client, settings_server);
+    parse_auto_send_invite(settings_client, settings_server);
     parse_ip_country(local_storage, settings_client, settings_server);
 
     parse_encrypted_app_ticket(settings_client, settings_server);
@@ -1869,6 +1927,7 @@ uint32 create_localstorage_settings(Settings **settings_client_out, Settings **s
     parse_overlay_general_config(settings_client, settings_server);
     load_overlay_appearance(settings_client, settings_server, local_storage);
     parse_steam_game_stats_reports_dir(settings_client, settings_server);
+    parse_cloud_save(&ini, settings_client, settings_server, local_storage);
 
     *settings_client_out = settings_client;
     *settings_server_out = settings_server;
